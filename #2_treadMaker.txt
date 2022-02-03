@@ -1,0 +1,140 @@
+import maya.cmds as cmds
+
+#this is the function for making window    
+def makeWindow():
+    winName="TreadBuilder"
+    if cmds.window(winName,q=True,exists=True):
+        cmds.deleteUI(winName)
+    #now we are gonna make a window
+    cmds.window(winName)
+    cmds.columnLayout()
+    cmds.text(l="Welcome to the treadmaker")
+    cmds.separator(w=600,bgc=(1,1,1))
+    #cmds.text(l="now we are going for lunch")
+    makeWindow.initBtn=cmds.button(l="Initialize",c="initFunc()", )
+    makeWindow.resetBtn=cmds.button(l="Reset", c="resetLoc()",enable=False)
+    cmds.separator(w=600,bgc=(1,1,1))
+    makeWindow.makeCurveBtn=cmds.button(l="Make a tread curve",c="makeCurve()",vis=False)
+    cmds.separator(w=600,bgc=(1,1,1))
+    makeWindow.objText=cmds.textFieldButtonGrp(bl="Pick tread OBJ",bc="pickingObj()",editable=False)
+    cmds.separator(w=600,bgc=(1,1,1))
+    makeWindow.copyNum=cmds.intSliderGrp(min=10,max=500,v=35,f=True,cc="numChange()")
+    cmds.button(l="Make tread", c="makeTankTreads()")
+    
+    cmds.showWindow()
+
+#we want to make sure either the user knows the direction or not 
+confirmVar=cmds.confirmDialog(t="before anything",m="please, ensure your model is placed along Z axis",b=["yes","no"],db="yes",cb="no")
+print(confirmVar)
+if confirmVar=="no":
+    cmds.confirmDialog(m="then you must reorient your model on Z axis")
+else:
+    makeWindow()
+
+#start of all functions
+    
+def initFunc():  #this function initializes the process by dumping two locators for the user
+    initFunc.frontLocator=cmds.spaceLocator(n="CircleLocFront")
+    cmds.scale(5,5,5)
+    cmds.move(0,0,10,r=True)
+    
+    initFunc.backLocator=cmds.spaceLocator(n="CircleLocBack")
+    cmds.scale(5,5,5)
+    cmds.move(0,0,-10,r=True)
+    cmds.confirmDialog(m="you now have two locators. place them where you want according to your need")
+    cmds.button(makeWindow.initBtn,edit=True,en=False)
+    cmds.button(makeWindow.resetBtn,edit=True,en=True)
+    cmds.button(makeWindow.makeCurveBtn,edit=True,vis=True)
+    
+def resetLoc(): #this function deletes the two locators created
+    cmds.delete([initFunc.frontLocator[0],initFunc.backLocator[0]])
+    cmds.delete(makeCurve.treadCurve)
+    cmds.delete("locGroup")
+    cmds.button(makeWindow.initBtn,edit=True,en=True)
+    cmds.button(makeWindow.resetBtn,edit=True,en=False)
+    cmds.button(makeWindow.makeCurveBtn,edit=True,vis=False)
+    
+def makeCurve(): #this function creates a curve based on the two locators
+    cmds.select(initFunc.frontLocator)
+    frontLocPos=cmds.getAttr(".translateZ")
+    cmds.select(initFunc.backLocator)
+    backLocPos=cmds.getAttr(".translateZ")
+    print(frontLocPos)
+    print(backLocPos)
+    locDistance=abs(frontLocPos-backLocPos)
+    print("the total distance is: %s" %locDistance)
+    curveRadius=locDistance/2
+    makeCurve.treadCurve=cmds.circle(n="treadCurve",r=curveRadius,nr=(1,0,0))
+    cmds.group(initFunc.frontLocator,initFunc.backLocator,n="locGroup")
+    cmds.select(makeCurve.treadCurve,r=True)
+    cmds.select("locGroup",add=True)
+    cmds.align(x="mid",z="mid",y="mid",atl=True)
+    cmds.FreezeTransformations()
+    
+def pickingObj():  #this function identifies the tred object
+    global selectedOBJ
+    selectedOBJ=cmds.ls(sl=True,objectsOnly=True)
+    print(selectedOBJ)
+    cmds.textFieldButtonGrp(makeWindow.objText,editable=True,tx=selectedOBJ[0])
+    return selectedOBJ
+        
+def numChange():  #this function sends out the number of copy set by the user
+    if cmds.objExists("TreadFull"):
+        cmds.delete("TreadFull")
+    if cmds.objExists("_wire"):
+        cmds.delete("_wire")
+    
+    global updateCopyNum
+    updateCopyNum=cmds.intSliderGrp(makeWindow.copyNum,query=True,v=True)
+    print(updateCopyNum)
+    
+    cmds.select(selectedOBJ,r=True)
+    cmds.select(makeCurve.treadCurve,add=True)
+    cmds.pathAnimation(fractionMode=True, follow=True, followAxis="z", upAxis="y", worldUpType="vector", wu=(0,1,0), inverseFront=False, inverseUp=False,bank=False,stu=1,etu=updateCopyNum)
+    cmds.select(selectedOBJ,r=True)
+    cmds.selectKey("motionPath1_uValue",time=(1,updateCopyNum))
+    cmds.keyTangent(itt="linear",ott="linear")
+    cmds.snapshot(n="TreadSS",i=1,ch=False,st=1,et=updateCopyNum,u="animCurve")
+    cmds.DeleteMotionPaths()#when you are working with few you should delete only the one you want so it is not deleting everything
+    #now we combine all duplicated and delete the Snapshot
+    cmds.select("TreadSSGroup",r=True)
+    cmds.polyUnite(n="TreadFull",ch=False)
+    cmds.select("TreadSSGroup",r=True)
+    cmds.delete()
+    
+    def createWireDeformer(geo,wireCRV,dropoffDist=40):
+        wire=cmds.wire(geo,w=wireCRV,n="_wire")
+        wireNode=wire[0]
+        cmds.setAttr(wireNode+".dropoffDistance[0]",dropoffDist)
+    cmds.select("TreadFull")
+    wireObj=cmds.ls(sl=True,o=True)[0]
+    cmds.select(makeCurve.treadCurve)
+    wireCurve=cmds.ls(sl=True,o=True)[0]
+    createWireDeformer(wireObj,wireCurve)
+    return updateCopyNum
+''' 
+def makeTankTreads():  #this function uses the picked obj and the number of copies and makes treads
+    #animating the picked object along the path
+    cmds.select(selectedOBJ,r=True)
+    cmds.select(makeCurve.treadCurve,add=True)
+    cmds.pathAnimation(fractionMode=True, follow=True, followAxis="z", upAxis="y", worldUpType="vector", wu=(0,1,0), inverseFront=False, inverseUp=False,bank=False,stu=1,etu=updateCopyNum)
+    cmds.select(selectedOBJ,r=True)
+    cmds.selectKey("motionPath1_uValue",time=(1,updateCopyNum))
+    cmds.keyTangent(itt="linear",ott="linear")
+    cmds.snapshot(n="TreadSS",i=1,ch=False,st=1,et=updateCopyNum,u="animCurve")
+    cmds.DeleteMotionPaths()#when you are working with few you should delete only the one you want so it is not deleting everything
+    #now we combine all duplicated and delete the Snapshot
+    cmds.select("TreadSSGroup",r=True)
+    cmds.polyUnite(n="TreadFull",ch=False)
+    cmds.select("TreadSSGroup",r=True)
+    cmds.delete()
+    
+    def createWireDeformer(geo,wireCRV,dropoffDist=40):
+        wire=cmds.wire(geo,w=wireCRV,n="_wire")
+        wireNode=wire[0]
+        cmds.setAttr(wireNode+".dropoffDistance[0]",dropoffDist)
+    cmds.select("TreadFull")
+    wireObj=cmds.ls(sl=True,o=True)[0]
+    cmds.select(makeCurve.treadCurve)
+    wireCurve=cmds.ls(sl=True,o=True)[0]
+    createWireDeformer(wireObj,wireCurve)'''
