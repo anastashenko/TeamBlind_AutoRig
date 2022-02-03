@@ -1,0 +1,135 @@
+#!/usr/bin/env python
+
+'''
+    Creates a layered shader with two input for
+    color textures and one for alpha mask.
+    
+    File: LayeredShader_Creator.py
+    Version: 1.0
+    Author: Anastasia Korol
+'''
+
+
+import maya.cmds as cmds
+from os import listdir
+
+class LayeredShader_Creator():
+    def __init__(self):
+        self.window = 'ShaderWindow'
+        self.title = 'Layered Shader Window'
+        self.size = (600, 250)
+        self.createWindow()
+        
+        
+    def createWindow(self):
+        if cmds.window(self.window, exists = True):
+            cmds.deleteUI(self.window, window = True)
+            
+        self.window = cmds.window(self.window, title = self.title, widthHeight = self.size)
+        
+        
+        self.mainForm = cmds.formLayout(numberOfDivisions = 100);
+        
+        self.titleDisplay = cmds.text(label = self.title, align="center", font = 'boldLabelFont')
+        cmds.formLayout(self.mainForm, edit = True, attachForm=( [self.titleDisplay, 'top', 5],
+                                                                 [self.titleDisplay, 'left', 5],
+                                                                 [self.titleDisplay, 'right', 5] ))
+                                                                 
+                                                                 
+        
+        self.titleSeparator = cmds.separator();
+        cmds.formLayout(self.mainForm, edit=True, attachControl = [self.titleSeparator, 'top', 10, self.titleDisplay],
+                                                  attachForm = ([self.titleSeparator, 'left', 5],
+                                                                [self.titleSeparator, 'right', 5] ))
+                                                     
+        self.btnFolderSet1 = cmds.button(label='Set Texture Folder', height=30, width=150, command=self.SetFolderBtnCmd1)
+        cmds.formLayout(self.mainForm, edit=True, attachControl = [self.btnFolderSet1, 'top', 30, self.titleDisplay],
+                                                  attachForm = [self.btnFolderSet1, 'left', 5])
+                                                  
+                                                          
+
+        self.firstTextureList = cmds.optionMenu('optionMenu1',label="First File List")
+        cmds.formLayout(self.mainForm, edit=True, attachControl = [self.firstTextureList, 'top', 30, self.btnFolderSet1],
+                                                  attachForm = [self.firstTextureList, 'left', 5])
+
+        
+        
+        self.secondTextureList = cmds.optionMenu('optionMenu2',label="Second File List")
+        cmds.formLayout(self.mainForm, edit=True, attachControl = ([self.secondTextureList, 'top', 30, self.btnFolderSet1],
+                                                                   [self.secondTextureList, 'left', 20, self.firstTextureList]))
+                                                                   
+                                                                   
+                                                                   
+        self.maskList = cmds.optionMenu('optionMenu3', label='Mask File List')
+        cmds.formLayout(self.mainForm, edit=True, attachControl = ([self.maskList, 'top', 30, self.btnFolderSet1],
+                                                                   [self.maskList, 'left', 20, self.secondTextureList]))
+        
+                                                                 
+        
+        self.btnApplyShader = cmds.button(label='Create Shader', height=30, width=150, command=self.ShaderBtnCmd)
+        cmds.formLayout(self.mainForm, edit=True, attachControl = [self.btnApplyShader, 'top', 20, self.firstTextureList],
+                                                  attachForm = [self.btnApplyShader, 'left', 5])
+        cmds.setParent("..")                                           
+        cmds.showWindow() 
+        
+                                                 
+        
+    def SetFolderBtnCmd1(self, *args):
+        basicFilter = "Image Files (*.jpg *.jpeg *.tga *.png *.tiff *.bmp *.psd)"
+        self.myDir = cmds.fileDialog2 (fileFilter=basicFilter, dialogStyle=2, fm=3)
+        myFiles = listdir(self.myDir[0])
+        
+        for items in myFiles:
+            cmds.menuItem(label=items, parent='optionMenu1')
+            cmds.menuItem(label=items, parent='optionMenu2')
+            fileEndings = ('.psd','.PSD','.jpg','JPG','.jpeg','.JPEG','.tga','.TGA','.png','.PNG','.tiff','.TIFF','.bmp','.BMP')
+            if items.endswith(fileEndings):
+                cmds.menuItem(items)
+            else:
+                cmds.warning(items + 'Not valid file.')
+                
+        print (myFiles)
+        
+
+        
+    def ShaderBtnCmd(self, *args):
+        
+        selectedMenuItem1 = cmds.optionMenu('optionMenu1', q=True, value=True)
+        selectedMenuItem2 = cmds.optionMenu('optionMenu2', q=True, value=True)
+        selectedMenuItem3 = cmds.optionMenu('optionMenu3', q=True, value=True)
+        
+        shaderNode = cmds.shadingNode('lambert', asShader=True, name = "shader_LayeredLambert")
+        shdSg = cmds.sets(renderable=True, noSurfaceShader = True, empty = True, name = shaderNode +'_SG')
+        cmds.connectAttr(shaderNode+'.outColor', shdSg+'.surfaceShader')
+    
+        fileNode1 = cmds.shadingNode('file', asTexture=True, name = "texture_FileNode_1")
+        placeTex1 = cmds.shadingNode('place2dTexture', asUtility=True)
+        cmds.defaultNavigation(connectToExisting=True, source=placeTex1, destination=fileNode1)
+             
+        fileNode2 = cmds.shadingNode('file', asTexture=True, name = "texture_FileNode_2")
+        placeTex2 = cmds.shadingNode('place2dTexture', asUtility=True)
+        cmds.defaultNavigation(connectToExisting=True, source=placeTex2, destination=fileNode2)
+       
+        alphaMask = cmds.shadingNode('file', asTexture=True, name = "mask_texture_FileNode3")
+        placeTex3 = cmds.shadingNode('place2dTexture', asUtility=True)
+        cmds.defaultNavigation(connectToExisting=True, source=placeTex3, destination=alphaMask)
+       
+        layeredTexture = cmds.shadingNode('layeredTexture', asTexture=True)
+       
+       
+        cmds.setAttr(layeredTexture + '.inputs[0].color', 0.2, 0.7, 0.3, type="double3")
+        cmds.setAttr(layeredTexture + '.inputs[0].alpha', 0)
+        cmds.setAttr(layeredTexture + '.inputs[0].blendMode', 1)
+       
+        cmds.setAttr("{}.fileTextureName".format(fileNode1), self.myDir[0]+'/'+selectedMenuItem1, type="string")
+        cmds.setAttr("{}.fileTextureName".format(fileNode2), self.myDir[0]+'/'+selectedMenuItem2, type="string")
+        cmds.setAttr("{}.fileTextureName".format(alphaMask), self.myDir[0]+'/'+selectedMenuItem3, type="string")
+       
+           
+        cmds.connectAttr(layeredTexture + '.outColor', shaderNode + '.color', f=1)
+        cmds.connectAttr(fileNode1 + '.outColor', layeredTexture+ '.inputs[10].color', f=1)
+        cmds.connectAttr(fileNode2 + '.outColor', layeredTexture+ '.inputs[11].color', f=1)
+        cmds.connectAttr(alphaMask + '.outAlpha', layeredTexture+ '.inputs[10].alpha', f=1)
+    
+     
+LayeredShader_Creator()
