@@ -1,0 +1,58 @@
+import maya.cmds as cmds
+
+#Plan
+#1. Create the locators and let user place them (UI)
+#2. Get the locations of the locators
+#3. Create pipes with limited sizing and let the user choose a radius but have a limit for it (ex. r=<pipeHeight/20)
+#4. 
+
+
+winName = "Hydraulics Creator"
+if cmds.window(winName,q=True,ex=True):
+    cmds.deleteUI(winName)
+
+
+def winCreate():
+    cmds.window(winName, s=False,w=350,h=150,t="Creating hydraulics")
+    cmds.columnLayout()
+    cmds.text(l="Start with creating the hydraulics")
+    
+    #SubUserX = cmds.intSliderGrp(l="Subdivisions X", f=True, min=0, max=500, v=150,
+    #                         cc="PipeSubX=cmds.intSliderGrp(SubUserX,q=True,v=True)")
+    #SubUserY = cmds.intSliderGrp(l="Subdivisions Y", f=True, min=0, max=500, v=150,
+    #                         cc="PipeSubY=cmds.intSliderGrp(SubUserY,q=True,v=True)")
+    
+    winCreate.RadiusUser = cmds.floatSliderGrp(l="Radius for hydraulics", f=True, min=1, max=300, v=5,
+                                 cc="radiusPipe=cmds.floatSliderGrp(winCreate.RadiusUser,q=True,v=True)")
+    #ScaleUserY = cmds.floatSliderGrp(l="Scale on Y for plane", f=True, min=0, max=300, v=0,
+    #                             cc="PipeScaleY=cmds.floatSliderGrp(ScaleUserY,q=True,v=True)")
+    cmds.button(l="Create a pipe", w=100, h=50, c="CreatePipes()")
+
+    '''
+    cmds.button(l="Wheel Controls",c="WheelSelection()")
+    
+    cmds.button(l="reset", c="resetAll()")
+    cmds.separator(w=350)
+    winCreate.RadioSel=cmds.radioButtonGrp(l="Choose Direction", la3=["X","Y","Z"],nrb=3,sl=True)
+    cmds.button(l="Create arrow", c="ArrowDrop()")
+    winCreate.RotSpeed=cmds.intSliderGrp(f=True,v=1,min=1,max=100,sbm="you are setting the rotation multiplier")
+    
+    '''
+    cmds.showWindow()
+    #winCreate.radioselection=cmds.radioButtonGrp(winCreate.RadioSel,q=True,sl=True)
+winCreate()    
+'''
+#start of the functions
+def resetAll():
+    cmds.delete("wheelCTRL")
+    cmds.select(WheelSelection.selectedWheels)
+    cmds.ungroup("WheelGroup")'''
+
+def CreatePipes():
+    global new
+    #new = cmds.polyPlane(n=PlaneNameUser)
+    new=cmds.polyCylinder(n="meow",r=radiusPipe)
+    '''cmds.setAttr(new[1] + ".subdivisionsWidth", PlaneSubX)
+    cmds.setAttr(new[1] + ".subdivisionsHeight", PlaneSubY)
+    cmds.setAttr(new[1] + ".translateY", PlaneScaleX)
+    cmds.setAttr(new[1] + ".radius", PlaneScaleY)'''
