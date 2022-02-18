@@ -1,0 +1,99 @@
+import maya.cmds as cmds
+
+#Plan
+######UI
+#1. Create the locators and let user place them (UI)
+#2. Get the locations of the locators
+######logics behind functuanality
+#3. Create pipes with limited sizing and let the user choose a radius but have a limit for it (ex. r=<pipeHeight/20)
+######
+#4. Create locators
+#5. Create cylinders, change pivot point to the end of the bbox and create a duplicate with the opposite pivot point
+#6. Freeze transforms on geo and locators
+#7. Point constraint pipe to the locator, do the same thing to the opposite pipe 
+#8. Aim constraint the opposite locators with opposite pipes 
+
+winName="Hydraulics"
+if cmds.window(winName, q=True,exists=True):
+    cmds.deleteUI(winName)
+
+cmds.window(winName,w=500,h=400,s=False)
+cmds.columnLayout()
+cmds.text(l="Start with creating the hydraulics")
+
+RadiusUser = cmds.floatSliderGrp(l="Radius for hydraulics", f=True, min=1, max=300, v=5,
+                             cc="radiusPipe=cmds.floatSliderGrp(RadiusUser,q=True,v=True)")
+
+cmds.button(l="Create a pipe", w=100, h=50, c="CreatePipes()")
+cmds.showWindow()
+
+
+def CreatePipes():
+    #new = cmds.polyPlane(n=PlaneNameUser)
+    #new=cmds.polyCylinder(n="meow",r=radiusPipe)
+    outerPipe=cmds.polyCylinder(n="meow",sx=20,sy=1,sz=1,r=0.8,height=12,ax=(0,1,0),rcp=0,cuv=3,ch=1)
+    innerPipe=cmds.polyCylinder(n="meow",sx=20,sy=1,sz=1,r=0.6,height=13,ax=(0,1,0),rcp=0,cuv=3,ch=1)
+    #pipeList=cmds.select(outerPipe,innerPipe,r=True)
+    booleanPipe=cmds.polyBoolOp(outerPipe[0],innerPipe[0],op=2,n="result",ch=1)
+    #cmds.delete(booleanPipe, constructionHistory = True)
+    cmds.rotate(-90,0,0)
+    innerPipe=cmds.polyCylinder(n="meow",sx=20,sy=1,sz=1,r=0.6,height=13,ax=(0,1,0),rcp=0,cuv=3,ch=1)
+    cmds.move(0,0,5)
+    cmds.rotate(-90,0,0)
+    
+    pipeList=[innerPipe,booleanPipe]
+    
+    bbox = cmds.exactWorldBoundingBox(innerPipe)
+    innerPivot = [(bbox[0] + bbox[3])/2, (bbox[4]+bbox[1])/2, bbox[5]]
+    cmds.xform(innerPipe, piv=innerPivot, ws=True)
+    
+    bbox = cmds.exactWorldBoundingBox(booleanPipe)
+    outerPivot = [(bbox[0] + bbox[3])/2, (bbox[4]+bbox[1])/2, bbox[2]]
+    cmds.xform(booleanPipe, piv=outerPivot, ws=True)
+
+    frontLoc=cmds.spaceLocator()
+    cmds.move(innerPivot[0],innerPivot[1],innerPivot[2])
+    backLoc=cmds.spaceLocator()
+    cmds.move(outerPivot[0],outerPivot[1],outerPivot[2])
+    CreatePipes.locList=[frontLoc,backLoc]
+    
+    geoForHistory=[innerPipe[0],booleanPipe[0],frontLoc,backLoc]
+    for i in geoForHistory:
+        cmds.delete(i, constructionHistory = True)
+        cmds.makeIdentity(i,apply=True,t=True,r=True,s=True,n=0)
+    
+    cmds.pointConstraint(frontLoc,innerPipe[0])
+    cmds.pointConstraint(backLoc,booleanPipe[0])
+    
+    cmds.aimConstraint(backLoc,innerPipe[0],mo=True,weight=1,aimVector=(1,0,0),upVector=(0,1,0),worldUpType="vector")
+    cmds.aimConstraint(frontLoc,booleanPipe[0],mo=True,weight=1,aimVector=(1,0,0),upVector=(0,1,0),worldUpType="vector")
+'''    
+bbox = cmds.exactWorldBoundingBox("pCube1")
+bottom = [(bbox[0] + bbox[3])/2, bbox[1], (bbox[2] + bbox[5])/2]
+cmds.xform("pCube1", piv=bottom, ws=True)
+
+
+bbox = cmds.exactWorldBoundingBox('result')
+print ('Bounding box ranges from: %f' % bbox[0], ', %f' % bbox[1], ', %f' % bbox[2],)
+print (' to %f' % bbox[3], ', %f' % bbox[4], ', %f' % bbox[5])
+bottom = [(bbox[0] + bbox[3])/2, (bbox[4]+bbox[1])/2, bbox[5]]
+cmds.xform('result', piv=bottom, ws=True)
+    
+        
+cmds.setAttr(new[1] + ".subdivisionsWidth", PlaneSubX)
+cmds.setAttr(new[1] + ".subdivisionsHeight", PlaneSubY)
+cmds.setAttr(new[1] + ".translateY", PlaneScaleX)
+cmds.setAttr(new[1] + ".radius", PlaneScaleY)
+       
+def initFunc(self, *args):  # this function initializes the process by dumping two locators for the user
+    self.frontLocator = cmds.spaceLocator(n="CircleLocFront")
+    cmds.scale(5, 5, 5)
+    cmds.move(0, 0, 10, r=True)
+    self.backLocator = cmds.spaceLocator(n="CircleLocBack")
+    cmds.scale(5, 5, 5)
+    cmds.confirmDialog(m="you now have two locators. place them where you want according to your model need")
+    cmds.button(self.btnInitialize, edit=True, en=False)
+    cmds.button(self.btnReset, edit=True, en=True)
+    cmds.button(self.btnMakeCurve, edit=True, en=True)
+    cmds.button(self.MakeCTRL, edit=True, en=False)
+'''
