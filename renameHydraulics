@@ -1,0 +1,13 @@
+cmds.button(l="Name your Hydraulics", w=100, h=50, c="renameHydraulics()")
+
+def renameHydraulics():
+    inputName= cmds.promptDialog(m="Please type a name for your Hydrayulics", t="Hydraulic",b=['yes'], db='yes')
+    HydraulicName=cmds.promptDialog(q=True,text=True)
+    cmds.select(CreatePipes.booleanPipe[0],r=True)
+    cmds.rename(HydraulicName+"OuterPipe")
+    cmds.select(CreatePipes.innerPipe[0],r=True)
+    cmds.rename(HydraulicName+"InnerPipe")
+    cmds.select(CreatePipes.frontLoc,r=True)
+    cmds.rename(HydraulicName+"FrontLoc")
+    cmds.select(CreatePipes.backLoc,r=True)
+    cmds.rename(HydraulicName+"BackLoc")
