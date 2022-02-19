@@ -13,6 +13,14 @@ import maya.cmds as cmds
 #7. Point constraint pipe to the locator, do the same thing to the opposite pipe 
 #8. Aim constraint the opposite locators with opposite pipes 
 
+
+
+#radius, height - done
+#create the hydraulics - Aryn parent function, let the user know that they choose first geo close to the front locator and then choose the furthest one with back locator
+#reset - 
+#renaming option
+
+
 winName="Hydraulics"
 if cmds.window(winName, q=True,exists=True):
     cmds.deleteUI(winName)
@@ -52,9 +60,9 @@ def CreatePipes():
     outerPivot = [(bbox[0] + bbox[3])/2, (bbox[4]+bbox[1])/2, bbox[2]]
     cmds.xform(booleanPipe, piv=outerPivot, ws=True)
 
-    frontLoc=cmds.spaceLocator()
+    frontLoc=cmds.spaceLocator(n="FrontLocator")
     cmds.move(innerPivot[0],innerPivot[1],innerPivot[2])
-    backLoc=cmds.spaceLocator()
+    backLoc=cmds.spaceLocator(n="BackLocator")
     cmds.move(outerPivot[0],outerPivot[1],outerPivot[2])
     CreatePipes.locList=[frontLoc,backLoc]
     
@@ -68,6 +76,11 @@ def CreatePipes():
     
     cmds.aimConstraint(backLoc,innerPipe[0],mo=True,weight=1,aimVector=(1,0,0),upVector=(0,1,0),worldUpType="vector")
     cmds.aimConstraint(frontLoc,booleanPipe[0],mo=True,weight=1,aimVector=(1,0,0),upVector=(0,1,0),worldUpType="vector")
+
+
+def 
+
+
 '''    
 bbox = cmds.exactWorldBoundingBox("pCube1")
 bottom = [(bbox[0] + bbox[3])/2, bbox[1], (bbox[2] + bbox[5])/2]
