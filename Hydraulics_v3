@@ -1,0 +1,131 @@
+import maya.cmds as cmds
+
+#Plan
+######UI
+#1. Create the locators and let user place them (UI)
+#2. Get the locations of the locators
+######logics behind functuanality
+#3. Create pipes with limited sizing and let the user choose a radius but have a limit for it (ex. r=<pipeHeight/20)
+######
+#4. Create locators
+#5. Create cylinders, change pivot point to the end of the bbox and create a duplicate with the opposite pivot point
+#6. Freeze transforms on geo and locators
+#7. Point constraint pipe to the locator, do the same thing to the opposite pipe 
+#8. Aim constraint the opposite locators with opposite pipes 
+
+
+
+#radius, height - done
+#create the hydraulics - Aryn parent function, let the user know that they choose first geo close to the front locator and then choose the furthest one with back locator
+#reset - 
+#renaming option
+
+
+winName="Hydraulics"
+if cmds.window(winName, q=True,exists=True):
+    cmds.deleteUI(winName)
+
+cmds.window(winName,w=500,h=400,s=False)
+cmds.columnLayout()
+cmds.text(l="Start with creating the hydraulics")
+
+RadiusUser = cmds.floatSliderGrp(l="Radius for hydraulics", f=True, min=1, max=300, v=5,
+                             cc="radiusPipe=cmds.floatSliderGrp(RadiusUser,q=True,v=True)")
+                             
+HeightUser = cmds.floatSliderGrp(l="Height for hydraulics", f=True, min=1, max=300, v=5,
+                             cc="heightPipe=cmds.floatSliderGrp(HeightUser,q=True,v=True)")
+
+cmds.button(l="Reset", w=100, h=50, c="ResetFunc()")
+
+cmds.button(l="Create a pipe", w=100, h=50, c="CreatePipes()")
+cmds.showWindow()
+
+
+def CreatePipes():
+
+    CreatePipes.outerPipe=cmds.polyCylinder(n="outerPipe",sx=20,sy=1,sz=1,r=radiusPipe,height=heightPipe,ax=(0,1,0),rcp=0,cuv=3,ch=1)
+    CreatePipes.innerPipe=cmds.polyCylinder(n="innerPipe",sx=20,sy=1,sz=1,r=radiusPipe*0.8,height=heightPipe*1.1,ax=(0,1,0),rcp=0,cuv=3,ch=1)
+    CreatePipes.booleanPipe=cmds.polyBoolOp(CreatePipes.outerPipe[0],CreatePipes.innerPipe[0],op=2,n="outerPipe",ch=1)
+
+    cmds.rotate(-90,0,0)
+    CreatePipes.innerPipe=cmds.polyCylinder(n="innerPipe",sx=20,sy=1,sz=1,r=radiusPipe*0.8,height=heightPipe,ax=(0,1,0),rcp=0,cuv=3,ch=1)
+    cmds.move(0,0,5)
+    cmds.rotate(-90,0,0)
+    
+    pipeList=[CreatePipes.innerPipe,CreatePipes.booleanPipe]
+    
+    bbox = cmds.exactWorldBoundingBox(CreatePipes.innerPipe)
+    innerPivot = [(bbox[0] + bbox[3])/2, (bbox[4]+bbox[1])/2, bbox[5]]
+    cmds.xform(CreatePipes.innerPipe, piv=innerPivot, ws=True)
+    
+    bbox = cmds.exactWorldBoundingBox(CreatePipes.booleanPipe)
+    outerPivot = [(bbox[0] + bbox[3])/2, (bbox[4]+bbox[1])/2, bbox[2]]
+    cmds.xform(CreatePipes.booleanPipe, piv=outerPivot, ws=True)
+
+    CreatePipes.frontLoc=cmds.spaceLocator(n="FrontLocator")
+    cmds.move(innerPivot[0],innerPivot[1],innerPivot[2])
+    CreatePipes.backLoc=cmds.spaceLocator(n="BackLocator")
+    cmds.move(outerPivot[0],outerPivot[1],outerPivot[2])
+    CreatePipes.locList=[CreatePipes.frontLoc,CreatePipes.backLoc]
+    
+    geoForHistory=[CreatePipes.innerPipe[0],CreatePipes.booleanPipe[0],CreatePipes.frontLoc,CreatePipes.backLoc]
+    for i in geoForHistory:
+        cmds.delete(i, constructionHistory = True)
+        cmds.makeIdentity(i,apply=True,t=True,r=True,s=True,n=0)
+    
+    cmds.pointConstraint(CreatePipes.frontLoc,CreatePipes.innerPipe[0])
+    cmds.pointConstraint(CreatePipes.backLoc,CreatePipes.booleanPipe[0])
+    
+    cmds.aimConstraint(CreatePipes.backLoc,CreatePipes.innerPipe[0],mo=True,weight=1,aimVector=(1,0,0),upVector=(0,1,0),worldUpType="vector")
+    cmds.aimConstraint(CreatePipes.frontLoc,CreatePipes.booleanPipe[0],mo=True,weight=1,aimVector=(1,0,0),upVector=(0,1,0),worldUpType="vector")
+
+
+def ResetFunc():
+        
+    if cmds.objExists(CreatePipes.frontLoc):
+        cmds.delete(CreatePipes.frontLoc)
+    
+    if cmds.objExists(CreatePipes.backLoc):
+        cmds.delete(CreatePipes.backLoc)
+    
+    if cmds.objExists(CreatePipes.innerPipe):
+        cmds.delete(CreatePipes.innerPipe)
+        
+    if cmds.objExists(CreatePipes.outerPipe):
+        cmds.delete(CreatePipes.outerPipe)
+        
+    if cmds.objExists(CreatePipes.booleanPipe):
+        cmds.delete(CreatePipes.booleanPipe)
+            
+
+
+'''    
+bbox = cmds.exactWorldBoundingBox("pCube1")
+bottom = [(bbox[0] + bbox[3])/2, bbox[1], (bbox[2] + bbox[5])/2]
+cmds.xform("pCube1", piv=bottom, ws=True)
+
+
+bbox = cmds.exactWorldBoundingBox('result')
+print ('Bounding box ranges from: %f' % bbox[0], ', %f' % bbox[1], ', %f' % bbox[2],)
+print (' to %f' % bbox[3], ', %f' % bbox[4], ', %f' % bbox[5])
+bottom = [(bbox[0] + bbox[3])/2, (bbox[4]+bbox[1])/2, bbox[5]]
+cmds.xform('result', piv=bottom, ws=True)
+    
+        
+cmds.setAttr(new[1] + ".subdivisionsWidth", PlaneSubX)
+cmds.setAttr(new[1] + ".subdivisionsHeight", PlaneSubY)
+cmds.setAttr(new[1] + ".translateY", PlaneScaleX)
+cmds.setAttr(new[1] + ".radius", PlaneScaleY)
+       
+def initFunc(self, *args):  # this function initializes the process by dumping two locators for the user
+    self.frontLocator = cmds.spaceLocator(n="CircleLocFront")
+    cmds.scale(5, 5, 5)
+    cmds.move(0, 0, 10, r=True)
+    self.backLocator = cmds.spaceLocator(n="CircleLocBack")
+    cmds.scale(5, 5, 5)
+    cmds.confirmDialog(m="you now have two locators. place them where you want according to your model need")
+    cmds.button(self.btnInitialize, edit=True, en=False)
+    cmds.button(self.btnReset, edit=True, en=True)
+    cmds.button(self.btnMakeCurve, edit=True, en=True)
+    cmds.button(self.MakeCTRL, edit=True, en=False)
+'''
