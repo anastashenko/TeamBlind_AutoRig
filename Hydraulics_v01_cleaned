@@ -1,0 +1,115 @@
+import maya.cmds as cmds
+
+#Creating the UI
+winName="Hydraulics"
+if cmds.window(winName, q=True,exists=True):
+    cmds.deleteUI(winName)
+
+cmds.window(winName,w=500,h=400,s=False)
+cmds.columnLayout()
+cmds.text(l="Start with creating the hydraulics")
+
+RadiusUser = cmds.floatSliderGrp(l="Radius for hydraulics", f=True, min=1, max=100, v=1,
+                             cc="radiusPipe=cmds.floatSliderGrp(RadiusUser,q=True,v=True)",en=True)
+                             
+HeightUser = cmds.floatSliderGrp(l="Height for hydraulics", f=True, min=1, max=500, v=15,
+                             cc="heightPipe=cmds.floatSliderGrp(HeightUser,q=True,v=True)",en=True)
+
+
+
+createBtn = cmds.button(l="Create a pipe", w=100, h=50, c="CreatePipes()",en=True)
+resetBtn = cmds.button(l="Reset", w=100, h=50, c="ResetFunc()",en=False)
+cmds.separator(w=500)
+cmds.text(l="Before parenting, select your geometry near the backLocator then the geometry near the front locator")
+parentBtn = cmds.button(l="Parent",c="parentPipes()",w=100, h=50,en=False)
+saveBtn = cmds.button(l="Save Hydraulics", w=100, h=50, c="renameHydraulics()",en=False,)
+cmds.showWindow()
+
+
+#start of the functions
+def CreatePipes():    #function which creates a pipe and constraint it to the locators
+    
+    #working on the shape of the pipe
+    CreatePipes.outerPipe=cmds.polyCylinder(n="basePipe",sx=20,sy=1,sz=1,r=radiusPipe,height=heightPipe,ax=(0,1,0),rcp=0,cuv=3,ch=1)
+    CreatePipes.innerPipe=cmds.polyCylinder(n="boolPipe",sx=20,sy=1,sz=1,r=radiusPipe*0.8,height=heightPipe*1.1,ax=(0,1,0),rcp=0,cuv=3,ch=1)
+    CreatePipes.booleanPipe=cmds.polyBoolOp(CreatePipes.outerPipe[0],CreatePipes.innerPipe[0],op=2,n="outerPipe",ch=0)
+    cmds.rotate(-90,0,0)
+    CreatePipes.innerPipe=cmds.polyCylinder(n="innerPipe",sx=20,sy=1,sz=1,r=radiusPipe*0.8,height=heightPipe,ax=(0,1,0),rcp=0,cuv=3,ch=1)
+    cmds.move(0,0,5)
+    cmds.rotate(-90,0,0)
+    pipeList=[CreatePipes.innerPipe,CreatePipes.booleanPipe]
+    
+    #moving pivot points of the pipes to constraint locators there
+    bbox = cmds.exactWorldBoundingBox(CreatePipes.innerPipe)
+    innerPivot = [(bbox[0] + bbox[3])/2, (bbox[4]+bbox[1])/2, bbox[5]]
+    cmds.xform(CreatePipes.innerPipe, piv=innerPivot, ws=True)
+    
+    bbox = cmds.exactWorldBoundingBox(CreatePipes.booleanPipe)
+    outerPivot = [(bbox[0] + bbox[3])/2, (bbox[4]+bbox[1])/2, bbox[2]]
+    cmds.xform(CreatePipes.booleanPipe, piv=outerPivot, ws=True)
+    
+    #working on the locators 
+    CreatePipes.frontLoc=cmds.spaceLocator(n="FrontLocator")
+    cmds.move(innerPivot[0],innerPivot[1],innerPivot[2])
+    CreatePipes.backLoc=cmds.spaceLocator(n="BackLocator")
+    cmds.move(outerPivot[0],outerPivot[1],outerPivot[2])
+    CreatePipes.locList=[CreatePipes.frontLoc,CreatePipes.backLoc]
+    
+    #deleting the history and freezing the transforms
+    geoForHistory=[CreatePipes.innerPipe[0],CreatePipes.booleanPipe[0],CreatePipes.frontLoc,CreatePipes.backLoc]
+    for i in geoForHistory:
+        cmds.delete(i, constructionHistory = True)
+        cmds.makeIdentity(i,apply=True,t=True,r=True,s=True,n=0)
+    
+    #contrainting locators to pipes 
+    cmds.pointConstraint(CreatePipes.frontLoc,CreatePipes.innerPipe[0])
+    cmds.pointConstraint(CreatePipes.backLoc,CreatePipes.booleanPipe[0])
+    
+    #aim constraining the opposite locators to the pipes
+    cmds.aimConstraint(CreatePipes.backLoc,CreatePipes.innerPipe[0],mo=True,weight=1,aimVector=(1,0,0),upVector=(0,1,0),worldUpType="vector")
+    cmds.aimConstraint(CreatePipes.frontLoc,CreatePipes.booleanPipe[0],mo=True,weight=1,aimVector=(1,0,0),upVector=(0,1,0),worldUpType="vector")
+    
+    cmds.button(resetBtn,edit=True,en=True)
+    cmds.button(createBtn,edit=True,en=False)
+    cmds.button(parentBtn,edit=True,en=True)
+    cmds.floatSliderGrp(RadiusUser,edit=True,en=False)
+    cmds.floatSliderGrp(HeightUser,edit=True,en=False)
+
+
+def ResetFunc():    #functions to reset everythong
+    cmds.delete(CreatePipes.frontLoc)
+    cmds.delete(CreatePipes.backLoc)
+    cmds.delete(CreatePipes.booleanPipe[0])
+    cmds.delete(CreatePipes.innerPipe[0])
+    cmds.button(resetBtn,edit=True,en=False)
+    cmds.button(createBtn,edit=True,en=True)
+    cmds.button(parentBtn,edit=True,en=False)
+    cmds.floatSliderGrp(RadiusUser,edit=True,en=True)
+    cmds.floatSliderGrp(HeightUser,edit=True,en=True)
+
+
+       
+def parentPipes():     #parenting the geo to the locators
+    selOBJ = cmds.ls(sl=True)
+    cmds.parent(CreatePipes.backLoc,selOBJ[0])
+    cmds.parent(CreatePipes.frontLoc,selOBJ[1])
+    cmds.button(saveBtn,edit=True,en=True)
+    cmds.button(parentBtn,edit=True,en=False)
+
+
+def renameHydraulics():     #renaming the saved hydraulics
+    inputName= cmds.promptDialog(m="Please type a name for your Hydrayulics", t="Hydraulic",b=['yes'], db='yes')
+    HydraulicName=cmds.promptDialog(q=True,text=True)
+    cmds.select(CreatePipes.booleanPipe[0],r=True)
+    cmds.rename(HydraulicName+"OuterPipe")
+    cmds.select(CreatePipes.innerPipe[0],r=True)
+    cmds.rename(HydraulicName+"InnerPipe")
+    cmds.select(CreatePipes.frontLoc,r=True)
+    cmds.rename(HydraulicName+"FrontLoc")
+    cmds.select(CreatePipes.backLoc,r=True)
+    cmds.rename(HydraulicName+"BackLoc")
+    cmds.button(createBtn,edit=True,en=True)
+    cmds.button(saveBtn,edit=True,en=False)
+    cmds.button(resetBtn,edit=True,en=False)
+    cmds.floatSliderGrp(RadiusUser,edit=True,en=True)
+    cmds.floatSliderGrp(HeightUser,edit=True,en=True)
