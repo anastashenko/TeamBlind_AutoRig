@@ -1,0 +1,125 @@
+import maya.cmds as cmds
+
+#here we are creating the window for auto rigging the arm
+winName = "armRig"
+if cmds.window(winName,query=True,exists=True):
+    cmds.deleteUI(winName)
+
+#Here we are designing/creating the window
+cmds.window(winName,w=500,h=300)
+cmds.columnLayout()
+cmds.text("Welcome to the arm rigging tool")
+cmds.separator(w=500)
+cmds.text("Before anything, ensure your model is aiming at positive Z")
+cmds.separator(w=500)
+jointsQ = cmds.intSliderGrp(label="Arms Joint Count:",min=2,max=10,value=2,field=True,
+cc="locNaming()")
+makeLBtn = cmds.button(label="Make Locators",c="makeLoc()")
+cmds.separator(w=500)
+resetLBtn = cmds.button(label="Undo Locators",enable=False,c="resetLoc()")
+msg001 = cmds.text("Now place the locators in the order of root and children or you can reset. When done, click on save locations",vis=False)
+cmds.separator(w=500)
+saveLBtn = cmds.button(label="Save Positions",enable=False,c="saveLoc()")
+cmds.separator(w=500)
+msg002 = cmds.text("Now click on create joints")
+makeJointBtn = cmds.button(label="Make Joints",en=False,c="makeJoints()")
+makeIkBtn = cmds.button(l="Create IK",c="makeIK()")
+cmds.showWindow()
+cmds.separator(w=500)
+cmds.text("Select desired joint and arm section")
+bindArmSkinBtn = cmds.button(label="Bind Skin",enable=True,c="bindArmSkin()")
+unbindArmSkinBtn = cmds.button(label="Unbind Skin",enable=True,c="unbindArmSkin()")
+cmds.separator(w=500)
+createArmCtrlBtn = cmds.button(label="Save Arm Rig",enable=True,c="createArmCtrl()")
+locList = []
+
+#--------- Start of the Functions ---------
+
+#This function creates as many locators as indicated in the intslider
+
+#This function passes the new slider number
+def locNaming():
+    jointsQValue = cmds.intSliderGrp(jointsQ,query=True,value=True)
+    nameList = []
+    for i in range(1,jointsQValue+1):
+        nameList.append(i)
+def makeLoc():
+    jointsQValue = cmds.intSliderGrp(jointsQ,query=True,value=True)
+    for i in range(1,jointsQValue+1):
+        newLoc = cmds.spaceLocator(n="armLocator%s"%i,position=(0,0,i*5))
+        cmds.CenterPivot()
+        locList.append(newLoc[0])
+    print(locList)
+
+#here i disable the makeLoc button
+    cmds.button(makeLBtn,edit=True,enable=False)
+    cmds.intSliderGrp(jointsQ,edit=True,enable=False)
+    cmds.button(resetLBtn,edit=True,enable=True)
+    cmds.button(saveLBtn,edit=True,enable=True)
+    cmds.button(makeJointBtn,edit=True,enable=True)
+
+    cmds.text(msg001,edit=True,vis=True)
+
+#This function deletes all the previous locators created
+def resetLoc():
+    global locList
+    cmds.select(locList)
+    cmds.delete()
+    locList = []
+    #Here I enable and disable
+    cmds.button(makeLBtn,edit=True,enable=True)
+    cmds.intSliderGrp(jointsQ,edit=True,enable=True)
+    cmds.button(resetLBtn,edit=True,enable=False)
+    cmds.button(saveLBtn,edit=True,enable=False)
+    cmds.text(msg001,edit=True,vis=False)
+
+def saveLoc():
+    global locLocation
+    locLocation = []
+    for i in locList:
+        locXYZ = cmds.getAttr(i+".wp")
+    locLocation.append(locXYZ[0])
+    print(locLocation)
+    return locLocation
+    #This function makes joints where the locaters are
+def makeJoints():
+    global jointList
+    jointList = []
+    cmds.select(clear=True)
+    for i in locList:
+        theJoint = cmds.joint(n="armJoint%s" %i)
+        theLocator = i
+        cmds.matchTransform(theJoint,theLocator,position=True)
+        jointList.append(theJoint)
+    cmds.select(locList)
+    cmds.delete()
+    print(jointList)
+def makeIK():
+        makeIK.armIKHandle=cmds.ikHandle(n="armIK",sj=jointList[0],ee=jointList[len(jointList)-2])
+def bindArmSkin():
+    cmds.bindSkin(tsb=True)
+def unbindArmSkin():
+    cmds.bindSkin(unbind=True)
+def createArmCtrl():
+    global jointList
+    UserArmName=cmds.promptDialog(m="Please type a name for your Arm", t="Arm Name",b=['OK!'], db='yes')
+    ArmName=cmds.promptDialog(q=True,text=True)
+    cmds.select(jointList[len(jointList)-2])
+    frontJntPos=cmds.getAttr(".translateZ")
+    cmds.select(jointList[len(jointList)-1])
+    backJntPos=cmds.getAttr(".translateZ")
+    jntDistance=abs(frontJntPos-backJntPos)
+    print("the total distance is: %s" %jntDistance)
+    ArmCtrlRadius=jntDistance/2
+    armCtrlCurve=cmds.circle(n=ArmName+"ArmCtrl",r=ArmCtrlRadius*1.025,nr=(0,1,0))
+    ctrlLocation=jointList[len(jointList)-2]
+    cmds.matchTransform(armCtrlCurve,ctrlLocation,position=True,rx=True)
+    cmds.select(armCtrlCurve)
+    cmds.FreezeTransformations()
+    cmds.parentConstraint(armCtrlCurve,makeIK.armIKHandle[0],mo=True)
+    cmds.orientConstraint(armCtrlCurve,ctrlLocation,mo=True)
+    cmds.select(jointList[0],r=True)
+    cmds.select(makeIK.armIKHandle[0],add=True)
+    cmds.group(n=ArmName+"ArmSkeleton")
+    cmds.hide()
+    
