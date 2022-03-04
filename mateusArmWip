@@ -48,7 +48,14 @@ def makeLoc():
         newLoc = cmds.spaceLocator(n="armLocator%s"%i,position=(0,0,i*-5))
         cmds.CenterPivot()
         locList.append(newLoc[0])
+        locNumText=cmds.textCurves( f='Times-Roman', t=i )
+        cmds.scale(8,8,8)
+        cmds.rotate(0,90,0)
+        cmds.matchTransform(locNumText,newLoc,position=True)
+        cmds.parent(locNumText,newLoc)
+        cmds.TemplateObject(locNumText)
     cmds.confirmDialog(m="Place the locators in the order of root and children. When done, click on save locations")
+    cmds.select(locList[0])
     print(locList)
 
 #here i disable the makeLoc button
@@ -81,7 +88,7 @@ def saveLoc():
     locLocation.append(locXYZ[0])
     print(locLocation)
     return locLocation
-    #This function makes joints where the locaters are
+    #This function makes joints where the locators are
 def makeJoints():
     global jointList
     jointList = []
@@ -94,31 +101,58 @@ def makeJoints():
     cmds.select(locList)
     cmds.delete()
     print(jointList)
+#function to make the IK handle based on the quantity of joints
 def makeIK():
+    if len(jointList)==3:
+        makeIK.armIKHandle=cmds.ikHandle(n="armIK",sj=jointList[0],ee=jointList[len(jointList)-1])
+    else:
         makeIK.armIKHandle=cmds.ikHandle(n="armIK",sj=jointList[0],ee=jointList[len(jointList)-2])
+
+#simple function that allows the user to quickly bind or unbind skin
 def bindArmSkin():
     cmds.bindSkin(tsb=True)
 def unbindArmSkin():
     cmds.bindSkin(unbind=True)
-def createArmCtrl():
+def createArmCtrl(): #here we finalize the rig and create the main control to move the IK around
     global jointList
-    UserArmName=cmds.promptDialog(m="Please type a name for your Arm", t="Arm Name",b=['OK!'], db='yes')
-    ArmName=cmds.promptDialog(q=True,text=True)
-    cmds.select(jointList[len(jointList)-2])
-    frontJntPos=cmds.getAttr(".translateZ")
-    cmds.select(jointList[len(jointList)-1])
-    backJntPos=cmds.getAttr(".translateZ")
-    jntDistance=abs(frontJntPos-backJntPos)
-    print("the total distance is: %s" %jntDistance)
-    ArmCtrlRadius=jntDistance/2
-    armCtrlCurve=cmds.circle(n=ArmName+"ArmCtrl",r=ArmCtrlRadius*1.025,nr=(0,1,0))
-    ctrlLocation=jointList[len(jointList)-2]
-    cmds.matchTransform(armCtrlCurve,ctrlLocation,position=True,rx=True)
-    cmds.select(armCtrlCurve)
-    cmds.FreezeTransformations()
-    cmds.parentConstraint(armCtrlCurve,makeIK.armIKHandle[0],mo=True)
-    cmds.orientConstraint(armCtrlCurve,ctrlLocation,mo=True)
-    cmds.select(jointList[0],r=True)
-    cmds.select(makeIK.armIKHandle[0],add=True)
-    cmds.group(n=ArmName+"ArmSkeleton")
-    
+    if len(jointList)==3:
+        UserArmName=cmds.promptDialog(m="Please type a name for your Arm", t="Arm Name",b=['OK!'], db='yes')
+        ArmName=cmds.promptDialog(q=True,text=True)
+        cmds.select(jointList[len(jointList)-2])
+        frontJntPos=cmds.getAttr(".translateZ")
+        cmds.select(jointList[len(jointList)-1])
+        backJntPos=cmds.getAttr(".translateZ")
+        jntDistance=abs(frontJntPos-backJntPos)
+        print("the total distance is: %s" %jntDistance)
+        ArmCtrlRadius=jntDistance/2
+        armCtrlCurve=cmds.circle(n=ArmName+"ArmCtrl",r=ArmCtrlRadius*1.025,nr=(0,1,0))
+        ctrlLocation=jointList[len(jointList)-1]
+        cmds.matchTransform(armCtrlCurve,ctrlLocation,position=True,rx=True)
+        cmds.select(armCtrlCurve)
+        cmds.FreezeTransformations()
+        cmds.parentConstraint(armCtrlCurve,makeIK.armIKHandle[0],mo=True)
+        cmds.orientConstraint(armCtrlCurve,ctrlLocation,mo=True)
+        cmds.select(jointList[0],r=True)
+        cmds.select(makeIK.armIKHandle[0],add=True)
+        cmds.group(n=ArmName+"ArmSkeleton")
+    else:
+        UserArmName=cmds.promptDialog(m="Please type a name for your Arm", t="Arm Name",b=['OK!'], db='yes')
+        ArmName=cmds.promptDialog(q=True,text=True)
+        cmds.select(jointList[len(jointList)-2])
+        frontJntPos=cmds.getAttr(".translateZ")
+        cmds.select(jointList[len(jointList)-1])
+        backJntPos=cmds.getAttr(".translateZ")
+        jntDistance=abs(frontJntPos-backJntPos)
+        print("the total distance is: %s" %jntDistance)
+        ArmCtrlRadius=jntDistance/2
+        armCtrlCurve=cmds.circle(n=ArmName+"ArmCtrl",r=ArmCtrlRadius*1.025,nr=(0,1,0))
+        ctrlLocation=jointList[len(jointList)-2]
+        cmds.matchTransform(armCtrlCurve,ctrlLocation,position=True,rx=True)
+        cmds.select(armCtrlCurve)
+        cmds.FreezeTransformations()
+        cmds.parentConstraint(armCtrlCurve,makeIK.armIKHandle[0],mo=True)
+        cmds.orientConstraint(armCtrlCurve,ctrlLocation,mo=True)
+        cmds.select(jointList[0],r=True)
+        cmds.select(makeIK.armIKHandle[0],add=True)
+        cmds.group(n=ArmName+"ArmSkeleton")
+
