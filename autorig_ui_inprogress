@@ -1,0 +1,892 @@
+import maya.cmds as cmds
+from functools import partial
+
+
+
+'''
+class createMyLayoutCls(object):
+    def __init__(self):
+        pass
+
+    def show(self):
+        self.createMyLayout()
+
+    def createMyLayout(self):
+
+        #check to see if our window exists
+        if cmds.window('utility', exists = True):
+            cmds.deleteUI('utility')
+
+        # create our window
+        self.window = cmds.window('utility', widthHeight = (200, 200), title = 'Distribute', resizeToFitChildren=1, sizeable = False)
+
+        cmds.setParent(menu=True)
+
+        # create a main layout
+        mainLayout = cmds.gridLayout( numberOfColumns=3, cellWidthHeight=(70, 50) )
+
+        # X Y Z BUTTONS
+        btnAlignX = cmds.button(label='X', c=lambda *_:self.TakeAction('x'))
+        btnAlignY = cmds.button(label='Y', c=lambda *_:self.TakeAction('y'))
+        btnAlignZ = cmds.button(label='Z', c=lambda *_:self.TakeAction('z'))
+
+        # show window
+        cmds.showWindow(self.window)
+
+    def TakeAction(self, axis=''):
+        print (axis)
+
+        if axis == 'x':
+            print ('you selected x')
+        if axis == 'y':
+            print ('you selected y')
+        if axis == 'y':
+            print ('you selected z')   
+
+b_cls = createMyLayoutCls()  
+b_cls.show()'''
+'''
+from functools import partial
+import maya.cmds as cmds
+class ButtonWin(object):
+    def __init__(self):
+        self.win = cmds.window()
+        self.layout = cmds.columnLayout(parent=self.win)
+        for x in range(10):
+            meow=cmds.button(label="Click Here %d"%x, parent=self.layout, command=partial(self.report,x))
+            cmds.button(meow,e=True,en=False)
+            cmds.showWindow()
+    def report(self,buttonIndex,value):
+        print ("button %d got %s"%(buttonIndex,value))
+f = ButtonWin()
+
+import maya
+from maya import cmds as mc
+from functools import partial
+
+def buttonFunc(*args, **kwargs):
+    for arg in args:
+        print (arg)
+
+win = mc.window(wh=(256,256))
+mc.columnLayout()
+button = mc.button(label="Press Me")
+mc.button(button, e=True, command=partial(buttonFunc, button))
+
+mc.showWindow(win)'''
+
+
+# creating a class for the tread Autorig
+class AutoRig_Tread(object):
+    
+    # initializing the UI so it is working smoothier with variables for buttons
+    def __init__(self):
+
+        # defining the title and size for the window
+        self.title = 'Tread AutoRig'
+        self.title1 = 'Arm AutoRig'
+        self.title2 = 'Wheel AutoRig'
+        self.title3 = 'Hydraulics AutoRig'
+        self.title4 = 'Finalize'
+        self.locList = []
+        self.savedPartsList = []
+        self.btnListReset = []
+        self.size = (400, 500)
+
+        # creating a pop-up dialog for the user to make sure the object is on Z Axis
+        confirmVar = cmds.confirmDialog(t="before anything", m="please ensure your model in placed along Z axis",
+                                        b=['yes', 'no'], db='yes', cb='no')
+        if confirmVar == 'no':
+            cmds.confirmDialog(m="then you must reorient your model on Z axis")
+
+        # creating a window
+        else:
+            winName = "TreadBuilder"
+            if cmds.window(winName, q=True, exists=True):
+                cmds.deleteUI(winName)
+
+            window = cmds.window(winName, title=self.title, widthHeight=self.size, sizeable=True)
+
+            self.mainForm = cmds.formLayout(numberOfDivisions=120)
+            allowedAreas = ['right']
+            cmds.dockControl(area='right', content=window, allowedArea=allowedAreas)
+            self.tabs = cmds.tabLayout(innerMarginWidth=5, innerMarginHeight=5)
+
+            cmds.formLayout(self.mainForm, edit=True, attachForm=(
+            (self.tabs, 'top', 0), (self.tabs, 'left', 0), (self.tabs, 'bottom', 0), (self.tabs, 'right', 0)))
+
+            self.child1 = cmds.formLayout('TreadTab')
+            self.titleDisplay = cmds.text(label=self.title, align="center", font='boldLabelFont')
+            cmds.formLayout(self.child1, edit=True, attachForm=([self.titleDisplay, 'top', 5],
+                                                                [self.titleDisplay, 'left', 5],
+                                                                [self.titleDisplay, 'right', 5]))
+
+            self.titleSeparator = cmds.separator();
+            cmds.formLayout(self.child1, edit=True, attachControl=[self.titleSeparator, 'top', 10, self.titleDisplay],
+                            attachForm=([self.titleSeparator, 'left', 5],
+                                        [self.titleSeparator, 'right', 5]))
+
+            self.btnInitialize = cmds.button(label='Place Locators', height=30, width=150, command=self.initFunc)
+            cmds.formLayout(self.child1, edit=True, attachControl=[self.btnInitialize, 'top', 20, self.titleSeparator],
+                            attachForm=[self.btnInitialize, 'left', 5])
+
+            self.btnReset = cmds.button(label='Reset', height=30, width=150,
+                                        command=lambda *_: self.resetAllBtn('TreadReset'), en=False)
+            cmds.formLayout(self.child1, edit=True, attachControl=[self.btnReset, 'top', 20, self.btnInitialize],
+                            attachForm=[self.btnReset, 'left', 5])
+
+            self.btnMakeCurve = cmds.button(label='Make Curve', height=30, width=150, command=self.makeCurve, en=False)
+            cmds.formLayout(self.child1, edit=True, attachControl=([self.btnMakeCurve, 'left', 20, self.btnInitialize],
+                                                                   [self.btnMakeCurve, 'top', 20, self.titleSeparator]),
+                            attachForm=[self.btnMakeCurve, 'left', 5])
+
+            self.ObjText = cmds.textFieldButtonGrp(bl="Pick Tread OBJ", bc=self.PickingObj, ed=False, en=False)
+            cmds.formLayout(self.child1, edit=True, attachControl=[self.ObjText, 'top', 20, self.btnReset],
+                            attachForm=[self.ObjText, 'left', 5])
+
+            self.CopyNum = cmds.intSliderGrp(min=10, max=500, v=35, f=True, cc=self.numChange, en=False)
+            cmds.formLayout(self.child1, edit=True, attachControl=[self.CopyNum, 'top', 20, self.ObjText],
+                            attachForm=[self.CopyNum, 'left', 5])
+
+            self.SaveTread = cmds.button(l="Save Tread", c=self.SaveTreadFunc, en=False)
+            cmds.formLayout(self.child1, edit=True, attachControl=[self.SaveTread, 'top', 20, self.CopyNum],
+                            attachForm=[self.SaveTread, 'left', 5])
+
+            self.MakeCTRL = cmds.button(l="Make Control for Tread", c=self.makeControl, en=False)
+            cmds.formLayout(self.child1, edit=True, attachControl=[self.MakeCTRL, 'top', 20, self.SaveTread],
+                            attachForm=[self.MakeCTRL, 'left', 5])
+
+            cmds.setParent('..')
+
+            ################################################################################################################
+
+            self.child2 = cmds.formLayout('ArmTab')
+
+            # cmds.text("welcome to the armrigging tool")
+            self.titleDisplay1 = cmds.text(label=self.title1, align="center", font='boldLabelFont')
+            cmds.formLayout(self.child2, edit=True, attachForm=([self.titleDisplay1, 'top', 5],
+                                                                [self.titleDisplay1, 'left', 5],
+                                                                [self.titleDisplay1, 'right', 5]))
+
+            # cmds.separator(w=500,bgc=(1,1,1))
+            self.titleSeparator1 = cmds.separator();
+            cmds.formLayout(self.child2, edit=True, attachControl=[self.titleSeparator1, 'top', 10, self.titleDisplay1],
+                            attachForm=([self.titleSeparator1, 'left', 5],
+                                        [self.titleSeparator1, 'right', 5]))
+            # cmds.text("Before anytging ensure your modek is aiming positive Z")
+            # cmds.separator(w=500)
+
+            # JointsQ=cmds.intSliderGrp(l="Arm Joint count: ", min=2,max=10,v=2,f=True,cc="locNaming()")
+            self.JointsQ = cmds.intSliderGrp(min=1, max=100, v=2, f=True, cc=self.locNaming, en=True)
+            cmds.formLayout(self.child2, edit=True, attachControl=[self.JointsQ, 'top', 20, self.titleSeparator1],
+                            attachForm=[self.JointsQ, 'left', 5])
+
+            # MakeLBtn=cmds.button(l="Make Locators",c="makeLoc()")
+            self.MakeLBtn = cmds.button(l="Make Locators", c=self.makeLoc, height=30, width=150, en=True)
+            cmds.formLayout(self.child2, edit=True, attachControl=[self.MakeLBtn, 'top', 20, self.JointsQ],
+                            attachForm=[self.MakeLBtn, 'left', 5])
+
+            # ResetLBtn=cmds.button(l="Undo Locators",c="resetLoc()")
+            self.ResetLBtn = cmds.button(l="Undo Locators", c=lambda *_: self.resetAllBtn('ArmReset'), height=30,
+                                         width=150, en=True)
+            cmds.formLayout(self.child2, edit=True, attachControl=[self.ResetLBtn, 'top', 20, self.MakeLBtn],
+                            attachForm=[self.ResetLBtn, 'left', 5])
+
+            # cmds.separator(w=500,bgc=(1,1,1))
+            self.titleSeparator2 = cmds.separator();
+            cmds.formLayout(self.child2, edit=True, attachControl=[self.titleSeparator2, 'top', 10, self.ResetLBtn],
+                            attachForm=([self.titleSeparator2, 'left', 5],
+                                        [self.titleSeparator2, 'right', 5]))
+
+            # msg001=cmds.text("Now place locators in the order of root and children or you can reset.when done click save locators",vis=False)
+            self.msg001 = cmds.text(
+                l="Now place locators in the order of root and children or you can reset.when done click save locators",
+                vis=False, align="center", font='boldLabelFont')
+            cmds.formLayout(self.child2, edit=True, attachForm=([self.msg001, 'top', 5],
+                                                                [self.msg001, 'left', 5],
+                                                                [self.msg001, 'right', 5]))
+
+            # saveLBtn=cmds.button(l="Save Positions", enable=False,c="saveLoc()")
+            self.saveLBtn = cmds.button(l="Save Positions", c=self.saveLoc, height=30, width=150, en=True)
+            cmds.formLayout(self.child2, edit=True, attachControl=[self.saveLBtn, 'top', 20, self.titleSeparator2],
+                            attachForm=[self.saveLBtn, 'left', 5])
+
+            # cmds.separator(w=500,bgc=(1,1,1))
+            self.titleSeparator3 = cmds.separator();
+            cmds.formLayout(self.child2, edit=True, attachControl=[self.titleSeparator3, 'top', 10, self.saveLBtn],
+                            attachForm=([self.titleSeparator3, 'left', 5],
+                                        [self.titleSeparator3, 'right', 5]))
+
+            # msg002=cmds.text("now click on create joints")
+            self.msg002 = cmds.text(l="Now click on Create joints", vis=True, align="center", font='boldLabelFont')
+            cmds.formLayout(self.child2, edit=True, attachControl=[self.msg002, 'top', 10, self.titleSeparator3],
+                            attachForm=([self.msg002, 'top', 5],
+                                        [self.msg002, 'left', 5],
+                                        [self.msg002, 'right', 5]))
+
+            # makeJointsBtn=cmds.button(l="make joints",enable=False,c="makeJoints()")
+            self.makeJointsBtn = cmds.button(l="Create joints", c=self.makeJoints, height=30, width=150, en=True)
+            cmds.formLayout(self.child2, edit=True, attachControl=[self.makeJointsBtn, 'top', 20, self.msg002],
+                            attachForm=[self.makeJointsBtn, 'left', 5])
+
+            cmds.setParent("..")
+
+            ##########################################################################################################################
+            self.child3 = cmds.formLayout('WheelTab')
+
+            self.titleDisplay1 = cmds.text(label=self.title2, align="center", font='boldLabelFont')
+            cmds.formLayout(self.child3, edit=True, attachForm=([self.titleDisplay1, 'top', 5],
+                                                                [self.titleDisplay1, 'left', 5],
+                                                                [self.titleDisplay1, 'right', 5]))
+
+            # cmds.separator(w=500,bgc=(1,1,1))
+            self.titleSeparator1 = cmds.separator();
+            cmds.formLayout(self.child3, edit=True, attachControl=[self.titleSeparator1, 'top', 10, self.titleDisplay1],
+                            attachForm=([self.titleSeparator1, 'left', 5],
+                                        [self.titleSeparator1, 'right', 5]))
+
+            # cmds.text(l="Select the wheels you want to control together")
+            self.msg001 = cmds.text(l="Select the wheels you want to control together", vis=True, align="center",
+                                    font='boldLabelFont')
+            cmds.formLayout(self.child3, edit=True, attachControl=[self.msg001, 'top', 10, self.titleSeparator1],
+                            attachForm=([self.msg001, 'top', 5],
+                                        [self.msg001, 'left', 5],
+                                        [self.msg001, 'right', 5]))
+
+            # cmds.button(l="Wheel Controls", c="WheelSelection()")
+            self.makeWheelControlBtn = cmds.button(l="Wheel Controls", c=self.WheelSelection, height=30, width=150,
+                                                   en=True)
+            cmds.formLayout(self.child3, edit=True, attachControl=[self.makeWheelControlBtn, 'top', 10, self.msg001],
+                            attachForm=[self.makeWheelControlBtn, 'left', 5])
+
+            # cmds.button(l="reset", c="resetAll()")
+            self.ResetWheelBtn = cmds.button(l="Reset", c=self.resetAll, height=30, width=150, en=True)
+            cmds.formLayout(self.child3, edit=True,
+                            attachControl=[self.ResetWheelBtn, 'top', 10, self.makeWheelControlBtn],
+                            attachForm=[self.ResetWheelBtn, 'left', 5])
+
+            # cmds.separator(w=350)
+            self.titleSeparator2 = cmds.separator();
+            cmds.formLayout(self.child3, edit=True, attachControl=[self.titleSeparator2, 'top', 10, self.ResetWheelBtn],
+                            attachForm=([self.titleSeparator2, 'left', 5],
+                                        [self.titleSeparator2, 'right', 5]))
+
+            self.RadioSel = cmds.radioButtonGrp(l="Choose Direction", la3=["X", "Y", "Z"], nrb=3, sl=True)
+            cmds.formLayout(self.child3, edit=True, attachControl=[self.RadioSel, 'top', 10, self.titleSeparator2],
+                            attachForm=[self.RadioSel, 'left', 5])
+
+            # cmds.button(l="Create arrow", c="ArrowDrop()")
+            self.arrowBtn = cmds.button(l="Create arrow", c=self.ArrowDrop, height=30, width=150, en=True)
+            cmds.formLayout(self.child3, edit=True, attachControl=[self.arrowBtn, 'top', 10, self.RadioSel],
+                            attachForm=[self.arrowBtn, 'left', 5])
+
+            # self.RotSpeed = cmds.intSliderGrp(f=True, v=1, min=1, max=100, sbm="you are setting the rotation multiplier")
+            self.RotSpeed = cmds.intSliderGrp(f=True, v=1, min=1, max=100,
+                                              sbm="you are setting the rotation multiplier")
+            cmds.formLayout(self.child3, edit=True, attachControl=[self.RotSpeed, 'top', 20, self.arrowBtn],
+                            attachForm=[self.RotSpeed, 'left', 5])
+
+            self.radioselection = cmds.radioButtonGrp(self.RadioSel, q=True, sl=True)
+
+            cmds.setParent("..")
+
+            #############################################################################################################
+            self.child4 = cmds.formLayout('HydraulicsTab')
+
+            self.titleDisplay1 = cmds.text(label=self.title3, align="center", font='boldLabelFont')
+            cmds.formLayout(self.child4, edit=True, attachForm=([self.titleDisplay1, 'top', 5],
+                                                                [self.titleDisplay1, 'left', 5],
+                                                                [self.titleDisplay1, 'right', 5]))
+
+            # cmds.separator(w=500,bgc=(1,1,1))
+            self.titleSeparator1 = cmds.separator();
+            cmds.formLayout(self.child4, edit=True, attachControl=[self.titleSeparator1, 'top', 10, self.titleDisplay1],
+                            attachForm=([self.titleSeparator1, 'left', 5],
+                                        [self.titleSeparator1, 'right', 5]))
+
+            # cmds.text(l="Start with creating the hydraulics")
+            self.msg001 = cmds.text(l="Start with creating the hydraulics", vis=True, align="center",
+                                    font='boldLabelFont')
+            cmds.formLayout(self.child4, edit=True, attachControl=[self.msg001, 'top', 10, self.titleSeparator1],
+                            attachForm=([self.msg001, 'top', 5],
+                                        [self.msg001, 'left', 5],
+                                        [self.msg001, 'right', 5]))
+
+            ##
+
+            self.RadiusUser = cmds.floatSliderGrp('RadiusUser', l="Radius for hydraulics", f=True, min=1, max=100, v=1,
+                                                  en=True)
+
+            cmds.formLayout(self.child4, edit=True, attachControl=[self.RadiusUser, 'top', 10, self.msg001],
+                            attachForm=([self.RadiusUser, 'top', 5],
+                                        [self.RadiusUser, 'left', 5],
+                                        [self.RadiusUser, 'right', 5]))
+
+            self.HeightUser = cmds.floatSliderGrp('HeightUser', l="Height for hydraulics", f=True, min=1, max=500, v=15,
+                                                  en=True)
+            cmds.formLayout(self.child4, edit=True, attachControl=[self.HeightUser, 'top', 10, self.RadiusUser],
+                            attachForm=([self.HeightUser, 'top', 5],
+                                        [self.HeightUser, 'left', 5],
+                                        [self.HeightUser, 'right', 5]))
+
+            self.createBtn = cmds.button(l="Create a pipe", w=150, h=30, c=self.CreatePipes, en=True)
+            cmds.formLayout(self.child4, edit=True, attachControl=[self.createBtn, 'top', 10, self.HeightUser],
+                            attachForm=([self.createBtn, 'top', 5],
+                                        [self.createBtn, 'left', 5],
+                                        [self.createBtn, 'right', 5]))
+
+            self.resetBtn = cmds.button(l="Reset", w=150, h=30, c=lambda *_: self.resetAllBtn('HydraulicsReset'),
+                                        en=False)
+            cmds.formLayout(self.child4, edit=True, attachControl=[self.resetBtn, 'top', 10, self.createBtn],
+                            attachForm=([self.resetBtn, 'top', 5],
+                                        [self.resetBtn, 'left', 5],
+                                        [self.resetBtn, 'right', 5]))
+
+            # cmds.separator(w=500)
+            self.titleSeparator2 = cmds.separator();
+            cmds.formLayout(self.child4, edit=True, attachControl=[self.titleSeparator2, 'top', 10, self.resetBtn],
+                            attachForm=([self.titleSeparator2, 'left', 5],
+                                        [self.titleSeparator2, 'right', 5]))
+
+            # cmds.text(l="Before parenting, select your geometry near the backLocator then the geometry near the front locator")
+            self.msg002 = cmds.text(
+                l="Before parenting, select your geometry near the backLocator then the geometry near the front locator",
+                vis=True, align="center", font='boldLabelFont')
+            cmds.formLayout(self.child4, edit=True, attachControl=[self.msg002, 'top', 10, self.titleSeparator2],
+                            attachForm=([self.msg002, 'top', 5],
+                                        [self.msg002, 'left', 5],
+                                        [self.msg002, 'right', 5]))
+
+            # parentBtn = cmds.button(l="Parent",c="parentPipes()",w=100, h=50,en=False)
+            self.parentBtn = cmds.button(l="Parent", w=150, h=30, c=self.parentPipes, en=False)
+            cmds.formLayout(self.child4, edit=True, attachControl=[self.parentBtn, 'top', 10, self.msg002],
+                            attachForm=([self.parentBtn, 'top', 5],
+                                        [self.parentBtn, 'left', 5],
+                                        [self.parentBtn, 'right', 5]))
+            self.saveBtn = cmds.button(l="Save Hydraulics", w=100, h=50, c=self.renameHydraulics, en=False)
+            cmds.formLayout(self.child4, edit=True, attachControl=[self.saveBtn, 'top', 10, self.parentBtn],
+                            attachForm=([self.saveBtn, 'top', 5],
+                                        [self.saveBtn, 'left', 5],
+                                        [self.saveBtn, 'right', 5]))
+
+            '''
+            ##
+
+            #cmds.button(l="Create hydraulics", w=100, h=50, c="CreatePipes()")
+            self.hydraulicsCreateBtn = cmds.button(l="Create hydraulics", c=self.CreatePipes, height=30, width=150,en=True)
+            cmds.formLayout(self.child4, edit=True, attachControl=[self.hydraulicsCreateBtn, 'top', 10, self.msg001],
+                            attachForm=[self.hydraulicsCreateBtn, 'left', 5])
+            '''
+            cmds.setParent("..")
+
+            ##############################################################################################################
+            self.child5 = cmds.formLayout('FinalizeTab')
+
+            self.titleDisplay1 = cmds.text(label=self.title4, align="center", font='boldLabelFont')
+            cmds.formLayout(self.child5, edit=True, attachForm=([self.titleDisplay1, 'top', 5],
+                                                                [self.titleDisplay1, 'left', 5],
+                                                                [self.titleDisplay1, 'right', 5]))
+
+            # cmds.separator(w=500,bgc=(1,1,1))
+            self.titleSeparator1 = cmds.separator();
+            cmds.formLayout(self.child5, edit=True, attachControl=[self.titleSeparator1, 'top', 10, self.titleDisplay1],
+                            attachForm=([self.titleSeparator1, 'left', 5],
+                                        [self.titleSeparator1, 'right', 5]))
+
+            self.createCtrlBtnGlobal = cmds.button(l="Create global control", w=100, h=50, c=self.finalizeStage,
+                                                   en=True)
+            cmds.formLayout(self.child5, edit=True,
+                            attachControl=[self.createCtrlBtnGlobal, 'top', 10, self.titleSeparator1],
+                            attachForm=([self.createCtrlBtnGlobal, 'top', 5],
+                                        [self.createCtrlBtnGlobal, 'left', 5],
+                                        [self.createCtrlBtnGlobal, 'right', 5]))
+            cmds.setParent("..")
+
+            cmds.tabLayout(self.tabs, edit=True, tabLabel=(
+            (self.child1, 'Tread Maker'), (self.child2, 'Arm Maker'), (self.child3, 'Wheel Maker'),
+            (self.child4, 'Hydraulics Maker'), (self.child5, 'Finalize')))
+            '''
+            self.resetBtnList=[self.resetBtn, self.ResetLBtn, self.btnReset]
+
+            meow=cmds.tabLayout(self.ResetLBtn)
+            print(meow)
+            print(self.resetBtn)
+            lol=cmds.button(self.resetBtn, q=True, p=True)
+            print(lol)
+
+            for i in self.rfullPathNameesetBtnList:
+                tabNameCheck = print(i)
+                if tabNameCheck == "meowmeow":'''
+
+            cmds.showWindow()
+
+    # start of all functions
+
+    def resetAllBtn(self, btn='', *args):
+        # tabNameCheck=cmds.button(q=True,p=True)
+        # self.resetBtnList=[self.resetBtn, self.ResetLBtn, self.btnReset]
+        '''
+        for i in self.resetBtnList:
+            tabNameCheck=cmds.button(i,q=True,p=True)
+            print(tabNameCheck)
+            btnListEnFalse=[self.btnReset,self.btnMakeCurve,self.SaveTread,self.MakeCTRL]
+            for i in btnListEnFalse:
+                cmds.button(i,q=True,en=True)'''
+
+        if btn == 'TreadReset':
+            cmds.button(self.btnInitialize, edit=True, en=True)
+            cmds.button(self.btnReset, edit=True, en=False)
+            cmds.button(self.btnMakeCurve, edit=True, en=False)
+            cmds.textFieldButtonGrp(self.ObjText, edit=True, en=False)
+            cmds.intSliderGrp(self.CopyNum, edit=True, en=False)
+            cmds.button(self.SaveTread, edit=True, en=False)
+            cmds.button(self.MakeCTRL, edit=True, en=False)
+
+            if cmds.objExists(self.frontLocator[0]):
+                cmds.delete(self.frontLocator)
+            if cmds.objExists(self.backLocator[0]):
+                cmds.delete(self.backLocator)
+            if cmds.objExists(self.locGroup):
+                cmds.delete(self.locGroup)
+            if cmds.objExists(self.treadCurve[0]):
+                cmds.delete(self.treadCurve)
+            if cmds.objExists(treadFullGeo[0]):
+                cmds.delete(treadFullGeo)
+            if cmds.objExists(str(selectedOBJ)):
+                cmds.select(selectedOBJ, r=True)
+                cmds.move(0, 0, 0, os=True)
+
+        if btn == 'ArmReset':
+            self.locList
+            cmds.select(self.locList)
+            cmds.delete()
+            self.locList = []
+
+            cmds.button(self.MakeLBtn, edit=True, enable=True)
+            cmds.intSliderGrp(self.JointsQ, edit=True, enable=True)
+            cmds.button(self.ResetLBtn, edit=True, enable=False)
+            cmds.button(self.saveLBtn, edit=True, enable=False)
+            cmds.button(self.makeJointsBtn, edit=True, enable=False)
+
+        if btn == 'HydraulicsReset':
+            if cmds.objExists(self.frontLoc[0]):
+                cmds.delete(self.frontLoc)
+            if cmds.objExists(self.backLoc[0]):
+                cmds.delete(self.backLoc)
+            if cmds.objExists(self.booleanPipe[0]):
+                cmds.delete(self.booleanPipe[0])
+            if cmds.objExists(self.innerPipe[0]):
+                cmds.delete(self.innerPipe[0])
+
+            cmds.button(self.resetBtn, edit=True, en=False)
+            cmds.button(self.createBtn, edit=True, en=True)
+            cmds.button(self.parentBtn, edit=True, en=False)
+            cmds.floatSliderGrp(self.RadiusUser, edit=True, en=True)
+            cmds.floatSliderGrp(self.HeightUser, edit=True, en=True)
+
+    def initFunc(self, *args):  # this function initializes the process by dumping two locators for the user
+        self.frontLocator = cmds.spaceLocator(n="CircleLocFront")
+        cmds.scale(5, 5, 5)
+        cmds.move(0, 0, 10, r=True)
+        self.backLocator = cmds.spaceLocator(n="CircleLocBack")
+        cmds.scale(5, 5, 5)
+        cmds.confirmDialog(m="you now have two locators. place them where you want according to your model need")
+        cmds.button(self.btnInitialize, edit=True, en=False)
+        cmds.button(self.btnReset, edit=True, en=True)
+        cmds.button(self.btnMakeCurve, edit=True, en=True)
+        cmds.button(self.MakeCTRL, edit=True, en=False)
+
+    def makeCurve(self, *args):  # this function creates curve based one the two locators
+        cmds.select(self.frontLocator)
+        FrontLocPos = cmds.getAttr(".translateZ")
+        cmds.select(self.backLocator)
+        BackLocPos = cmds.getAttr(".translateZ")
+        LocDistance = abs(FrontLocPos - BackLocPos)
+        self.curveRadius = LocDistance / 2
+        self.treadCurve = cmds.circle(n="TreadCurve", r=self.curveRadius, nr=(1, 0, 0))
+        self.locGroup = cmds.group(self.frontLocator, self.backLocator, n="locGroup")
+        cmds.select(self.treadCurve, r=True)
+        cmds.select("locGroup", add=True)
+        cmds.align(z="mid", atl=True)
+        cmds.select(self.treadCurve)
+        cmds.FreezeTransformations()
+        cmds.textFieldButtonGrp(self.ObjText, edit=True, en=True)
+        cmds.intSliderGrp(self.CopyNum, edit=True, en=True)
+
+    def PickingObj(self, *args):  # this function identifies the tread object
+        global selectedOBJ
+        selectedOBJ = cmds.ls(sl=True, o=True)
+        cmds.textFieldButtonGrp(self.ObjText, e=True, tx=selectedOBJ[0])
+        return selectedOBJ
+
+    def numChange(self, *args):  # this function sends out the numebr of copy set by the user
+        if cmds.objExists("TreadFull"):
+            cmds.delete("TreadFull")
+        if cmds.objExists("_wire"):
+            cmds.delete("_wire")
+
+        global updateCopyNum
+        updateCopyNum = cmds.intSliderGrp(self.CopyNum, query=True, v=True)
+        # animating the picked obj around the path
+        cmds.select(selectedOBJ, r=True)
+        cmds.select(self.treadCurve, add=True)
+        cmds.pathAnimation(f=True, fa="z", ua="y", wut="vector", wu=(0, 1, 0), inverseFront=False, iu=False, b=False,
+                           stu=1,
+                           etu=updateCopyNum)
+        cmds.select(selectedOBJ, r=True)
+        cmds.selectKey("motionPath1_uValue", time=(1, updateCopyNum))
+        cmds.keyTangent(itt="linear", ott="linear")
+        cmds.snapshot(n="TreadSS", i=1, ch=False, st=1, et=updateCopyNum, u="animCurve")
+        cmds.DeleteMotionPaths()
+        # now we combine all duplicated and delete the Sanpshot
+        cmds.select("TreadSSGroup", r=True)
+
+        # making geo of the tread global for reset option
+        global treadFullGeo
+
+        treadFullGeo = cmds.polyUnite(n="TreadFull", ch=False)
+        cmds.select("TreadSSGroup", r=True)
+        cmds.delete()
+        cmds.button(self.SaveTread, edit=True, en=True)
+
+        # creating a wire deformer
+        def createWireD(geo, wireCRV, dropoffDist=40):
+            wire = cmds.wire(geo, w=wireCRV)
+            wirenode = wire[0]
+            cmds.setAttr(wirenode + ".dropoffDistance[0]", dropoffDist)
+
+        cmds.select("TreadFull")
+        wireObj = cmds.ls(sl=True, o=True)[0]
+        cmds.select(self.treadCurve)
+        wirecurve = cmds.ls(sl=True, o=True)[0]
+        createWireD(wireObj, wirecurve)
+        return treadFullGeo
+        return updateCopyNum
+
+    def SaveTreadFunc(self, *args):  # This function saves the created tread
+        # giving the user an option for renaming the created tread
+        UserTreadName = cmds.promptDialog(m="Please type a name for your Tread", t="Tread Name", b=['yes'], db='yes')
+        self.TreadName = cmds.promptDialog(q=True, text=True)
+        if UserTreadName == "yes":
+            cmds.select("TreadCurve", r=True)
+            cmds.rename(self.TreadName + "CurveFinal")
+            cmds.select("TreadFull", r=True)
+            cmds.CenterPivot()
+            cmds.rename(self.TreadName + "FullFinal")
+            cmds.select("TreadCurveBaseWire", r=True)
+            cmds.rename(self.TreadName + "BaseWireFinal")
+            cmds.select(self.TreadName + "CurveFinal", self.TreadName + "FullFinal", self.TreadName + "BaseWireFinal",
+                        r=True)
+            cmds.group()
+            cmds.rename(self.TreadName + "TreadGrp")
+            cmds.select(selectedOBJ, r=True)
+            cmds.move(0, 0, 0, os=True)
+            cmds.FreezeTransformations()
+            cmds.button(self.SaveTread, edit=True, en=False)
+            cmds.button(self.MakeCTRL, edit=True, en=True)
+            cmds.button(self.btnInitialize, edit=True, en=True)
+            cmds.button(self.btnReset, edit=True, en=False)
+            cmds.button(self.btnMakeCurve, edit=True, en=False)
+            cmds.textFieldButtonGrp(self.ObjText, edit=True, en=False)
+            cmds.intSliderGrp(self.CopyNum, edit=True, en=False)
+            cmds.delete([self.frontLocator[0], self.backLocator[0]])
+            if cmds.objExists(self.locGroup):
+                cmds.delete(self.locGroup)
+        else:
+            pass
+
+    def makeControl(self, *args):  # this function will make the control for existing tread
+        treadCtrl = cmds.circle(n=self.TreadName + "treadCtrl", r=self.curveRadius * 1.5, nr=(1, 0, 0))
+        cmds.select(treadCtrl)
+        cmds.group()
+        cmds.rename(self.TreadName + "treadCtrlGrp")
+        cmds.select(self.TreadName + "treadCtrlGrp")
+        cmds.select(self.TreadName + "CurveFinal", add=True)
+        cmds.align(z="mid", atl=True)
+        cmds.select(self.TreadName + "treadCtrlGrp", r=True)
+        cmds.move(5, 0, 0, r=True)
+        cmds.select(treadCtrl, r=True)
+        cmds.select(self.TreadName + "FullFinal")
+        cmds.orientConstraint(treadCtrl, self.TreadName + "FullFinal", o=[0, 0, 0], sk=["y", "z"])
+        self.resetLoc()
+
+    #####################################################################################################################
+
+    # start of the ArmRig
+    def makeLoc(self, *args):
+        self.JointsQVal = cmds.intSliderGrp(self.JointsQ, query=True, value=True)
+        print(self.JointsQVal)
+        for i in range(1, self.JointsQVal + 1):
+            newLock = cmds.spaceLocator(n="ArmLocator%s" % i, p=(0, 0, i * 5))
+            cmds.CenterPivot()
+            self.locList.append(newLock[0])
+        print(self.locList)
+        # here I disabke the MakeLoc Button
+        cmds.button(self.MakeLBtn, edit=True, enable=False)
+        cmds.intSliderGrp(self.JointsQ, edit=True, enable=False)
+        cmds.button(self.ResetLBtn, edit=True, enable=True)
+        cmds.button(self.saveLBtn, edit=True, enable=True)
+        cmds.text(self.msg001, edit=True, vis=True)
+
+    # this function passes the new slider number
+    def locNaming(self, *args):
+        self.JointsQVal = cmds.intSliderGrp(self.JointsQ, query=True, value=True)
+        nameList = []
+        for i in range(1, self.JointsQVal):
+            nameList.append(i)
+
+        print(nameList)
+
+    # this function is saving the locations of locators
+    def saveLoc(self, *args):
+        global locLocation
+        cmds.button(self.makeJointsBtn, edit=True, enable=True)
+        locLocation = []
+        print (self.locList)
+        for i in self.locList:
+            locXYZ = cmds.getAttr(i + ".wp")
+            locLocation.append(locXYZ[0])
+        print(locLocation)
+        return locLocation
+
+    # this function will create joints where locators are
+    def makeJoints(self, *args):
+        cmds.select(clear=True)
+        for i in self.locList:
+            theJoint = cmds.joint(n="ArmJoint%s" % i)
+            theLocator = i
+            cmds.matchTransform(theJoint, theLocator, pos=True, rot=True)
+
+    ################################################################################################################################################
+
+    def resetAll(self, *args):
+        cmds.delete("wheelCTRL")
+        cmds.select(self.selectedWheels)
+        cmds.ungroup("WheelGroup")
+
+    def renamingAssets(self, *args):
+        cmds.rename("wheelCTRL", "wheelCTRL1")
+        cmds.rename("WheelGroup", "WheelGroup1")
+
+    def WheelSelection(self, *args):
+        self.selectedWheels = cmds.ls(sl=True)
+        cmds.group(n="WheelGroup")
+        self.ArrowDrop()
+        cmds.select("wheelCTRL")
+        cmds.select("WheelGroup", add=True)
+        cmds.align(x="mid", y="min", z="mid", atl=True)
+        # now we need teh arrow cntroller to control the wheels
+        cmds.select("wheelCTRL")
+        # RotationSpeed=cmds.intSliderGrp(winCreate.RotSpeed,q=True,v=True)
+        for wheel in self.selectedWheels:
+            self.RotationSpeed = cmds.intSliderGrp(self.RotSpeed, q=True, v=True)
+            cmds.expression(n="rotator", s=wheel + ".rz=wheelCTRL.tx*%s" % self.RotationSpeed)
+
+        cmds.parentConstraint("wheelCTRL", "WheelGroup", mo=True)
+        self.renamingAssets()
+
+    def ArrowDrop(self, *args):
+        cmds.curve(n="wheelCTRL", d=1,
+                   p=[(1, 0, -1), (-3, 0, -1), (-3, 0, -3), (-6, 0, 0), (-3, 0, 3), (-3, 0, 1), (1, 0, 1), (1, 0, -1)],
+                   k=[0, 1, 2, 3, 4, 5, 6, 7])
+        self.radioselection = cmds.radioButtonGrp(self.RadioSel, q=True, ed=True, sl=True)
+        print(self.radioselection)
+        if self.radioselection == 1:
+            print("Direction is X")
+            cmds.rotate(0, 90, 0)
+        if self.radioselection == 2:
+            print("Direction is Y")
+            cmds.rotate(90, 0, 0)
+        cmds.closeCurve(rpo=True)
+
+    ########################################################################################################
+
+    # start of the functions
+    def CreatePipes(self, *args):  # function which creates a pipe and constraint it to the locators
+        radiusPipe = cmds.floatSliderGrp('RadiusUser', q=True, v=True)
+        heightPipe = cmds.floatSliderGrp('HeightUser', q=True, v=True)
+        # working on the shape of the pipe
+        self.outerPipe = cmds.polyCylinder(n="basePipe", sx=20, sy=1, sz=1, r=radiusPipe, height=heightPipe,
+                                           ax=(0, 1, 0), rcp=0, cuv=3, ch=1)
+        self.innerPipe = cmds.polyCylinder(n="boolPipe", sx=20, sy=1, sz=1, r=radiusPipe * 0.8, height=heightPipe * 1.1,
+                                           ax=(0, 1, 0), rcp=0, cuv=3, ch=1)
+        self.booleanPipe = cmds.polyBoolOp(self.outerPipe[0], self.innerPipe[0], op=2, n="outerPipe", ch=0)
+        cmds.rotate(-90, 0, 0)
+        self.innerPipe = cmds.polyCylinder(n="innerPipe", sx=20, sy=1, sz=1, r=radiusPipe * 0.8, height=heightPipe,
+                                           ax=(0, 1, 0), rcp=0, cuv=3, ch=1)
+        cmds.move(0, 0, 5)
+        cmds.rotate(-90, 0, 0)
+        pipeList = [self.innerPipe, self.booleanPipe]
+
+        # moving pivot points of the pipes to constraint locators there
+        bbox = cmds.exactWorldBoundingBox(self.innerPipe)
+        innerPivot = [(bbox[0] + bbox[3]) / 2, (bbox[4] + bbox[1]) / 2, bbox[5]]
+        cmds.xform(self.innerPipe, piv=innerPivot, ws=True)
+
+        bbox = cmds.exactWorldBoundingBox(self.booleanPipe)
+        outerPivot = [(bbox[0] + bbox[3]) / 2, (bbox[4] + bbox[1]) / 2, bbox[2]]
+        cmds.xform(self.booleanPipe, piv=outerPivot, ws=True)
+
+        # working on the locators
+        self.frontLoc = cmds.spaceLocator(n="FrontLocator")
+        cmds.move(innerPivot[0], innerPivot[1], innerPivot[2])
+        self.backLoc = cmds.spaceLocator(n="BackLocator")
+        cmds.move(outerPivot[0], outerPivot[1], outerPivot[2])
+        self.locListHydrolics = [self.frontLoc, self.backLoc]
+
+        # deleting the history and freezing the transforms
+        geoForHistory = [self.innerPipe[0], self.booleanPipe[0], self.frontLoc, self.backLoc]
+        for i in geoForHistory:
+            cmds.delete(i, constructionHistory=True)
+            cmds.makeIdentity(i, apply=True, t=True, r=True, s=True, n=0)
+
+        # contrainting locators to pipes
+        cmds.pointConstraint(self.frontLoc, self.innerPipe[0])
+        cmds.pointConstraint(self.backLoc, self.booleanPipe[0])
+
+        # aim constraining the opposite locators to the pipes
+        cmds.aimConstraint(self.backLoc, self.innerPipe[0], mo=True, weight=1, aimVector=(1, 0, 0), upVector=(0, 1, 0),
+                           worldUpType="vector")
+        cmds.aimConstraint(self.frontLoc, self.booleanPipe[0], mo=True, weight=1, aimVector=(1, 0, 0),
+                           upVector=(0, 1, 0), worldUpType="vector")
+
+        cmds.button(self.resetBtn, edit=True, en=True)
+        cmds.button(self.createBtn, edit=True, en=False)
+        cmds.button(self.parentBtn, edit=True, en=True)
+        cmds.floatSliderGrp(self.RadiusUser, edit=True, en=False)
+        cmds.floatSliderGrp(self.HeightUser, edit=True, en=False)
+
+    def ResetFunc(self, *args):  # functions to reset everythong
+        cmds.delete(self.frontLoc)
+        cmds.delete(self.backLoc)
+        cmds.delete(self.booleanPipe[0])
+        cmds.delete(self.innerPipe[0])
+        cmds.button(self.resetBtn, edit=True, en=False)
+        cmds.button(self.createBtn, edit=True, en=True)
+        cmds.button(self.parentBtn, edit=True, en=False)
+        cmds.floatSliderGrp(self.RadiusUser, edit=True, en=True)
+        cmds.floatSliderGrp(self.HeightUser, edit=True, en=True)
+
+    def parentPipes(self, *args):  # parenting the geo to the locators
+        selOBJ = cmds.ls(sl=True)
+        cmds.parent(self.backLoc, selOBJ[0])
+        cmds.parent(self.frontLoc, selOBJ[1])
+        cmds.button(self.saveBtn, edit=True, en=True)
+        cmds.button(self.parentBtn, edit=True, en=False)
+
+    def renameHydraulics(self, *args):  # renaming the saved hydraulics
+        inputName = cmds.promptDialog(m="Please type a name for your Hydrayulics", t="Hydraulic", b=['yes'], db='yes')
+        HydraulicName = cmds.promptDialog(q=True, text=True)
+        cmds.select(self.booleanPipe[0], r=True)
+        cmds.rename(HydraulicName + "OuterPipe")
+        cmds.select(self.innerPipe[0], r=True)
+        cmds.rename(HydraulicName + "InnerPipe")
+        cmds.select(self.frontLoc, r=True)
+        cmds.rename(HydraulicName + "FrontLoc")
+        cmds.select(self.backLoc, r=True)
+        cmds.rename(HydraulicName + "BackLoc")
+        cmds.button(self.createBtn, edit=True, en=True)
+        cmds.button(self.saveBtn, edit=True, en=False)
+        cmds.button(self.resetBtn, edit=True, en=False)
+        cmds.floatSliderGrp(self.RadiusUser, edit=True, en=True)
+        cmds.floatSliderGrp(self.HeightUser, edit=True, en=True)
+
+    ###################################################################################################################
+
+    def finalizeStage(self, *args):
+
+        userGeoStatic = cmds.ls(sl=True)
+
+        self.curveBodyRotate = cmds.curve(n="bodyRotateCTRL", d=1,
+                                          p=[(1, 0, 0.666667), (0.666667, 0, 1), (-0.666667, 0, 1), (-1, 0, 0.666667),
+                                             (-1, 0, -0.666667), (-0.666667, 0, -1), (-0.333333, 0, -1),
+                                             (-0.333333, 0, -1.666667), (-0.666667, 0, -1.666667), (0, 0, -2.333333),
+                                             (0.666667, 0, -1.666667), (0.333333, 0, -1.666667), (0.333333, 0, -1),
+                                             (0.666667, 0, -1), (1, 0, -0.666667), (1, 0, 0.666667)],
+                                          k=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
+
+        cmds.hilite(self.curveBodyRotate)
+        cmds.select(self.curveBodyRotate + ".cv[1:15]")
+        cmds.scale(0.375592, 0.375592, 0.375592, self.curveBodyRotate, p=(0, 0, 0), r=True)
+
+        bbox = cmds.exactWorldBoundingBox(userGeoStatic)
+        distForGeoBody = abs(abs(bbox[2]) - abs(bbox[5]))
+        geoBody = [(bbox[0] + bbox[3]) / 2, (bbox[1] + bbox[4]) / 2, (bbox[5] + bbox[2]) / 2]
+
+        cmds.move(geoBody[0], geoBody[1], geoBody[2], self.curveBodyRotate, r=True)
+
+        cmds.hilite(self.curveBodyRotate)
+        cmds.select(self.curveBodyRotate + ".cv[1:15]")
+        cmds.scale(distForGeoBody * 1.3, distForGeoBody * 1.3, distForGeoBody * 2, self.curveBodyRotate, r=True)
+        cmds.select(clear=True)
+        cmds.select(self.curveBodyRotate, r=True)
+        cmds.FreezeTransformations(self.curveBodyRotate)
+
+        for i in userGeoStatic:
+            cmds.parentConstraint(self.curveBodyRotate, i, mo=True)
+            ###
+            cmds.scaleConstraint(self.curveBodyRotate, i, mo=True)
+            ###
+
+        if cmds.objExists(ArmCtrl):
+            cmds.parent(ArmCtrl, self.curveBodyRotate)
+
+        # parent the main body geo wto the cuveBodyRotate control
+        # parent it to local control
+        # parent it to global control
+
+        '''
+        cmds.select(self.curveBodyRotate, r=True)
+        cmds.select(bbox, add=True)
+        cmds.align(z="mid", atl=True)
+        cmds.select(self.curveBodyRotate)
+        cmds.FreezeTransformations()'''
+        '''
+        bbox = cmds.exactWorldBoundingBox(userGeoStatic)
+        innerPivot = [(bbox[0] + bbox[3])/2, (bbox[4]+bbox[1])/2, bbox[5]]
+        cmds.xform(self.innerPipe, piv=innerPivot, ws=True)'''
+        # cmds.closeCurve(rpo=True)
+
+    '''    
+    def CreatePipes(self,*args):
+
+        outerPipe=cmds.polyCylinder(n="innerPipe",sx=20,sy=1,sz=1,r=0.8,height=12,ax=(0,1,0),rcp=0,cuv=3,ch=1)
+        innerPipe=cmds.polyCylinder(n="outerPipe",sx=20,sy=1,sz=1,r=0.6,height=13,ax=(0,1,0),rcp=0,cuv=3,ch=1)
+
+        booleanPipe=cmds.polyBoolOp(outerPipe[0],innerPipe[0],op=2,n="outerPipe",ch=1)
+
+        cmds.rotate(-90,0,0)
+        innerPipe=cmds.polyCylinder(n="innerPipe",sx=20,sy=1,sz=1,r=0.6,height=13,ax=(0,1,0),rcp=0,cuv=3,ch=1)
+        cmds.move(0,0,5)
+        cmds.rotate(-90,0,0)
+
+        pipeList=[innerPipe,booleanPipe]
+
+        bbox = cmds.exactWorldBoundingBox(innerPipe)
+        innerPivot = [(bbox[0] + bbox[3])/2, (bbox[4]+bbox[1])/2, bbox[5]]
+        cmds.xform(innerPipe, piv=innerPivot, ws=True)
+
+        bbox = cmds.exactWorldBoundingBox(booleanPipe)
+        outerPivot = [(bbox[0] + bbox[3])/2, (bbox[4]+bbox[1])/2, bbox[2]]
+        cmds.xform(booleanPipe, piv=outerPivot, ws=True)
+
+        frontLoc=cmds.spaceLocator()
+        cmds.move(innerPivot[0],innerPivot[1],innerPivot[2])
+        backLoc=cmds.spaceLocator()
+        cmds.move(outerPivot[0],outerPivot[1],outerPivot[2])
+        self.locList=[frontLoc,backLoc]
+
+        geoForHistory=[innerPipe[0],booleanPipe[0],frontLoc,backLoc]
+        for i in geoForHistory:
+            cmds.delete(i, constructionHistory = True)
+            cmds.makeIdentity(i,apply=True,t=True,r=True,s=True,n=0)
+
+        cmds.pointConstraint(frontLoc,innerPipe[0])
+        cmds.pointConstraint(backLoc,booleanPipe[0])
+
+        cmds.aimConstraint(backLoc,innerPipe[0],mo=True,weight=1,aimVector=(1,0,0),upVector=(0,1,0),worldUpType="vector")
+        cmds.aimConstraint(frontLoc,booleanPipe[0],mo=True,weight=1,aimVector=(1,0,0),upVector=(0,1,0),worldUpType="vector")
+'''
+
+
+AutoRig_Tread()
